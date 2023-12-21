@@ -109,16 +109,24 @@ def get_steps(pipe_map):
 def get_start_pipes(matrix, start):
     next_pipes = []
     row, col = start
+    start_options = []
 
     if row > 0 and (matrix[row - 1][col] in ['|', '7', 'F']):
-            next_pipes.append((row - 1, col))
+        next_pipes.append((row - 1, col))
+        start_options.append(['|', 'J', 'L'])
     if row < len(matrix) - 1 and (matrix[row + 1][col] in ['|', 'L', 'J']):
         next_pipes.append((row + 1, col))
+        start_options.append(['|', '7', 'F'])
     if col > 0 and (matrix[row][col - 1] in ['-', 'L', 'F']):
         next_pipes.append((row, col - 1))
+        start_options.append(['-', '7', 'J'])
     if col < len(matrix[row]) - 1 and (matrix[row][col + 1] in ['-', '7', 'J']):
         next_pipes.append((row, col + 1))
+        start_options.append(['-', 'L', 'F'])
 
+    # Replace 'S' with the correct pipe piece
+    start_symbol = [symbol for symbol in start_options[0] if symbol in start_options[1]][0]
+    matrix[row][col] = start_symbol
     return next_pipes
 
 def get_next_pipe(matrix, current):
@@ -132,85 +140,52 @@ def get_next_pipe(matrix, current):
             next_pipe = (row - 1, col)
         if row < len(matrix) - 1 and (matrix[row + 1][col] in ['|', 'L', 'J', '7', 'F']):
             next_pipe = (row + 1, col)
+        matrix[row][col] = 'l'
     # If current is a horizontal pipe, check right and left of it
     if current_pipe == '-':
         if col > 0 and (matrix[row][col - 1] in ['-', '7', 'J', 'L', 'F']):
             next_pipe = (row, col - 1)
         if col < len(matrix[row]) - 1 and (matrix[row][col + 1] in ['-', '7', 'J', 'L', 'F']):
             next_pipe = (row, col + 1)
+        matrix[row][col] = '='
     # If current is a top left corner, check right and below
     if current_pipe == 'F':
         if col < len(matrix[row]) - 1 and (matrix[row][col + 1] in ['-', '7', 'J']):
             next_pipe = (row, col + 1)
         if row < len(matrix) - 1 and (matrix[row + 1][col] in ['|', 'L', 'J']):
             next_pipe = (row + 1, col)
+        matrix[row][col] = '['  
     # If current is top right corner, check left and below
     if current_pipe == '7':
         if col > 0 and (matrix[row][col - 1] in ['-', 'L', 'F']):
             next_pipe = (row, col - 1)
         if row < len(matrix) - 1 and (matrix[row + 1][col] in ['|', 'L', 'J']):
             next_pipe = (row + 1, col)
+        matrix[row][col] = ']'  
     # If current is bottom right, check left and above
     if current_pipe == 'J':
         if col > 0 and (matrix[row][col - 1] in ['-', 'L', 'F']):
             next_pipe = (row, col - 1)
         if row > 0 and (matrix[row - 1][col] in ['|', '7', 'F']):
             next_pipe = (row - 1, col)
+        matrix[row][col] = ']' 
     # If current is bottom left, check right and above
     if current_pipe == 'L':
         if col < len(matrix[row]) - 1 and (matrix[row][col + 1] in ['-', '7', 'J']):
             next_pipe = (row, col + 1)
         if row > 0 and (matrix[row - 1][col] in ['|', '7', 'F']):
             next_pipe = (row - 1, col)
-    matrix[row][col] = 'S'    
+        matrix[row][col] = '['    
     # print(next_pipe)
     return next_pipe
 
-def get_nest_indices(matrix, current, trajectory):
-    nest_indices = []
-    pipe_indices = []
+def fill_map(matrix, current):
     # Increment step and move to the next tile until there is no next (start reached)
     while current is not None:
-        # Add current to pipe indices
-        pipe_indices.append(current)
-        # print(trajectory)
-        # Remove current index from nest indices if present
-        if current in nest_indices:
-            nest_indices.remove(current)
-        row, col = current
-        current_pipe = matrix[row][col]
-        # print(current_pipe)
-        # Change trajectory if current pipe is a corner
-        if current_pipe == '7':
-            trajectory = 'd'
-        elif current_pipe == 'J':
-            trajectory = 'l'
-        elif current_pipe == 'L':
-            trajectory = 'u'
-        elif current_pipe == 'F':
-            trajectory = 'r'
-        # Add adjacent inner indices based on trajectory if they are not pipes
-        if trajectory == 'r':
-            nest_index = (row + 1, col)
-            if nest_index not in pipe_indices and nest_index not in nest_indices:
-                nest_indices.append(nest_index)
-        elif trajectory == 'd':
-            nest_index = (row, col - 1)
-            if nest_index not in pipe_indices and nest_index not in nest_indices:
-                nest_indices.append(nest_index)
-        elif trajectory == 'l':
-            nest_index = (row - 1, col)
-            if nest_index not in pipe_indices and nest_index not in nest_indices:
-                nest_indices.append(nest_index)
-        else:
-            nest_index = (row, col + 1)
-            if nest_index not in pipe_indices and nest_index not in nest_indices:
-                nest_indices.append(nest_index)
         # Get the next pipe
         next_pipe = get_next_pipe(matrix, current)
         # Set current to next pipe
         current = next_pipe
-    return nest_indices
 
 def get_start_trajectory(start_pipe, next_pipes):
     start_row = start_pipe[0]
@@ -237,6 +212,29 @@ def get_start_trajectory(start_pipe, next_pipes):
         return 'd'
     if 'l' in trajectories and 'u' in trajectories:
         return 'l'
+
+def count_inside(matrix):
+    count = 0
+    for row in range(len(matrix) - 1):
+        intersections = 0
+        col = 0
+        while matrix[row][col] == '.':
+            col += 1
+        while col < len(matrix[0]):
+            if matrix[row][col] == '.' and (intersections % 2 == 0) and not all(char == '.' for char in matrix[row][col:]):
+                print(row, col)
+                count += 1
+            if matrix[row][col] == '[':
+                intersections += 1
+                col += 1
+                while col < len(matrix) and matrix[row][col] in ['=', ']']:
+                    col += 1
+                col -= 1
+            if matrix[row][col] == 'l':
+                intersections += 1
+            col += 1
+        # print(intersections)
+    return count
 
 def get_steps(pipe_map):
     matrix = []
@@ -273,11 +271,11 @@ def get_steps(pipe_map):
     else:
         first_pipe = (start[0] - 1,start[1])
     # print(first_pipe)
-    # Get all valid indices that are adjacent and in the correct direction
-    nest_indices = get_nest_indices(matrix, first_pipe, start_trajectory)
+    # Fill the inside of the loop
+    fill_map(matrix, first_pipe)
     pretty_print(matrix)
-    print(nest_indices)
-    return len(nest_indices)
+    return count_inside(matrix)
+    
 
 # TESTS
 
